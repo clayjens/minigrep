@@ -2,42 +2,25 @@
 //! A simple grep-like utility written in Rust, following the tutorial in [The Rust Programming Language](https://doc.rust-lang.org/book/ch12-00-an-io-project.html).
 #![warn(missing_debug_implementations, missing_docs, rust_2018_idioms)]
 
-#[derive(Debug)]
-/// A configuration struct for the minigrep application.
-pub struct Config {
-    /// The query string to search for.
-    pub query: String,
-    /// The path to the file to search.
-    pub file_path: String,
-    /// Whether or not to ignore case when searching.
-    pub ignore_case: bool,
-}
+use std::{collections::HashMap, path::PathBuf};
 
-impl Config {
-    /// Build a new Config from the given arguments.
-    pub fn build(args: &[String]) -> Result<Self, &'static str> {
-        if args.len() < 3 {
-            return Err("not enough arguments");
-        }
+use clap::Parser;
 
-        let query = args[1].clone();
-        let file_path = args[2].clone();
-
-        let ignore_case = std::env::var("IGNORE_CASE").is_ok();
-
-        let config = Self {
-            query,
-            file_path,
-            ignore_case,
-        };
-
-        Ok(config)
-    }
+#[derive(Debug, Parser)]
+#[command(author, version, about, long_about = None)]
+/// Clap command-line interface for the minigrep application.
+pub struct MinigrepCli {
+    #[arg(short, long)]
+    verbose: bool,
+    #[arg(short, long)]
+    ignore_case: bool,
+    query: String,
+    file: PathBuf,
 }
 
 /// Run the minigrep application with the given configuration.
-pub fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
-    let contents = std::fs::read_to_string(config.file_path)?;
+pub fn run(config: &MinigrepCli) -> Result<(), Box<dyn std::error::Error>> {
+    let contents = std::fs::read_to_string(&config.file)?;
 
     let results = if config.ignore_case {
         search_case_insensitive(&config.query, &contents)
@@ -45,20 +28,35 @@ pub fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         search(&config.query, &contents)
     };
 
-    for line in results {
-        println!("{}", line);
+    if config.verbose {
+        println!("Searching for {}", config.query);
+        println!("In file {}", config.file.display());
+        println!("With text:\n{}", contents);
+        println!("Results:");
     }
+
+    display(&results);
 
     Ok(())
 }
 
-/// Search for the given query string in the given contents, case-sensitive.
-fn search<'a>(query: &'a str, contents: &'a str) -> Vec<&'a str> {
-    let mut results = vec![];
+/// Display the given results of a search.
+fn display<'a>(results: &HashMap<usize, &'a str>) {
+    let mut results = results.iter().collect::<Vec<_>>();
+    results.sort_by(|(a, _), (b, _)| a.cmp(b));
 
-    for line in contents.lines() {
+    for (line_number, line) in results {
+        println!("#{line_number}: {line}");
+    }
+}
+
+/// Search for the given query string in the given contents, case-sensitive.
+fn search<'a>(query: &'a str, contents: &'a str) -> HashMap<usize, &'a str> {
+    let mut results = HashMap::new();
+
+    for (idx, line) in contents.lines().enumerate() {
         if line.contains(query) {
-            results.push(line);
+            results.insert(idx + 1, line);
         }
     }
 
@@ -66,14 +64,13 @@ fn search<'a>(query: &'a str, contents: &'a str) -> Vec<&'a str> {
 }
 
 /// Search for the given query string in the given contents, case-insensitive.
-fn search_case_insensitive<'a>(query: &'a str, contents: &'a str) -> Vec<&'a str> {
+fn search_case_insensitive<'a>(query: &'a str, contents: &'a str) -> HashMap<usize, &'a str> {
+    let mut results = HashMap::new();
     let query = query.to_lowercase();
 
-    let mut results = vec![];
-
-    for line in contents.lines() {
+    for (idx, line) in contents.lines().enumerate() {
         if line.to_lowercase().contains(&query) {
-            results.push(line);
+            results.insert(idx + 1, line);
         }
     }
 
@@ -93,7 +90,10 @@ safe, fast, productive.
 Pick three.
 Duct tape.";
 
-        assert_eq!(vec!["safe, fast, productive."], search(query, contents));
+        let mut expected = HashMap::new();
+        expected.insert(2, "safe, fast, productive.");
+
+        assert_eq!(expected, search(query, contents));
     }
 
     #[test]
@@ -105,9 +105,10 @@ safe, fast, productive.
 Pick three.
 Trust me.";
 
-        assert_eq!(
-            vec!["Rust:", "Trust me."],
-            search_case_insensitive(query, contents)
-        );
+        let mut expected = HashMap::new();
+        expected.insert(1, "Rust:");
+        expected.insert(4, "Trust me.");
+
+        assert_eq!(expected, search_case_insensitive(query, contents));
     }
 }
