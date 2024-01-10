@@ -1,11 +1,20 @@
+//! # Minigrep
+//! A simple grep-like utility written in Rust, following the tutorial in [The Rust Programming Language](https://doc.rust-lang.org/book/ch12-00-an-io-project.html).
+#![warn(missing_debug_implementations, missing_docs, rust_2018_idioms)]
+
 #[derive(Debug)]
+/// A configuration struct for the minigrep application.
 pub struct Config {
+    /// The query string to search for.
     pub query: String,
+    /// The path to the file to search.
     pub file_path: String,
+    /// Whether or not to ignore case when searching.
     pub ignore_case: bool,
 }
 
 impl Config {
+    /// Build a new Config from the given arguments.
     pub fn build(args: &[String]) -> Result<Self, &'static str> {
         if args.len() < 3 {
             return Err("not enough arguments");
@@ -26,6 +35,7 @@ impl Config {
     }
 }
 
+/// Run the minigrep application with the given configuration.
 pub fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let contents = std::fs::read_to_string(config.file_path)?;
 
@@ -42,6 +52,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Search for the given query string in the given contents, case-sensitive.
 fn search<'a>(query: &'a str, contents: &'a str) -> Vec<&'a str> {
     let mut results = vec![];
 
@@ -54,6 +65,7 @@ fn search<'a>(query: &'a str, contents: &'a str) -> Vec<&'a str> {
     results
 }
 
+/// Search for the given query string in the given contents, case-insensitive.
 fn search_case_insensitive<'a>(query: &'a str, contents: &'a str) -> Vec<&'a str> {
     let query = query.to_lowercase();
 
