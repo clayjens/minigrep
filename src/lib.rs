@@ -49,7 +49,7 @@ pub fn run(config: &MinigrepCli) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Display the given results of a search.
-fn display<'a>(results: &HashMap<usize, String>) {
+fn display(results: &HashMap<usize, String>) {
     let mut results = results.iter().collect::<Vec<_>>();
     results.sort_by(|(a, _), (b, _)| a.cmp(b));
 
@@ -69,7 +69,7 @@ fn search_lazy<R: BufRead>(
         let line = line?;
 
         if line.contains(query) {
-            results.insert(idx + 1, line.into());
+            results.insert(idx + 1, line);
         }
     }
 
